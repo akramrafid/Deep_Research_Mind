@@ -49,6 +49,11 @@ html, body, [class*="css"] {
     text-align: center;
     padding: 3rem 0 2rem;
     position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 50vh;
 }
 .hero-badge {
     display: inline-block;
@@ -98,8 +103,8 @@ html, body, [class*="css"] {
 
 /* ── Input card ── */
 .input-card {
-    background: rgba(126,59,237,0.04);
-    border: 1px solid rgba(126,59,237,0.18);
+    background: transparent;
+    border: none;
     border-radius: 8px;
     padding: 1.8rem 2rem;
     margin-bottom: 1.8rem;
@@ -111,7 +116,7 @@ html, body, [class*="css"] {
     position: absolute;
     top: -1px; left: -1px; right: -1px; bottom: -1px;
     border-radius: 9px;
-    background: linear-gradient(135deg, rgba(126,59,237,0.15), transparent 50%, rgba(198,255,52,0.08));
+    background: transparent;
     z-index: -1;
     opacity: 0.5;
 }
@@ -404,15 +409,17 @@ details summary {
     font-family: 'Source Code Pro', monospace;
     font-size: 0.62rem;
     font-weight: 400;
-    color: rgba(255,255,255,0.15);
+    color: #FFFFFF;
     text-align: center;
     margin-top: 4rem;
     padding-top: 1.5rem;
     border-top: 1px solid rgba(255,255,255,0.04);
     letter-spacing: 0.08em;
+    text-shadow: 0 0 10px rgba(255,255,255,0.8), 0 0 20px rgba(126,59,237,0.4), 0 0 30px rgba(198,255,52,0.2);
 }
 .footer span.dev {
-    color: rgba(126,59,237,0.5);
+    color: #FFFFFF;
+    text-shadow: 0 0 10px rgba(255,255,255,0.8), 0 0 20px rgba(126,59,237,0.4);
 }
 
 /* ── Markdown content styling ── */
@@ -487,8 +494,8 @@ st.markdown("""
     <div class="hero-badge">Multi-Agent AI System</div>
     <h1>Deep<span class="accent">Research</span><span class="highlight">Mind</span></h1>
     <p class="hero-sub">
-        Four specialized AI agents collaborate &mdash; searching, scraping, writing
-        and critiquing &mdash; to deliver a polished research report on any topic.
+        Four specialized AI agents collaborate searching, scraping, writing
+        and critiquing to deliver a polished research report on any topic.
     </p>
 </div>
 <div class="divider"></div>
@@ -502,7 +509,7 @@ with col_input:
     st.markdown('<div class="input-card">', unsafe_allow_html=True)
     topic = st.text_input(
         "Research Topic",
-        placeholder="e.g. Quantum computing breakthroughs in 2025",
+        placeholder="e.g. AI Engineering Jobs in 2026",
         key="topic_input",
         label_visibility="visible",
     )
@@ -510,7 +517,7 @@ with col_input:
     st.markdown('</div>', unsafe_allow_html=True)
 
     # Example chips
-    examples = ["LLM agents 2025", "CRISPR gene editing", "Fusion energy progress"]
+    examples = ["LLM agents 2026", "Agentic AI", "AI research report", "Web scraping with AI", "AI content critique"]
     chips_html = '<div class="chip-row"><span class="chip-label">Try:</span>'
     for ex in examples:
         chips_html += f'<span class="chip">{ex}</span>'
