@@ -1,0 +1,35 @@
+# Core HTTP (MiniMax API will use this)
+requests>=2.31.0
+httpx>=0.27.0
+
+# LangChain ecosystem (LCEL + Agents + Tools)
+langchain>=0.2.0
+langchain-core>=0.2.0
+langchain-community>=0.2.0
+
+# Tavily Search Tool
+tavily-python>=0.3.0
+
+# Web scraping
+beautifulsoup4>=4.12.0
+requests>=2.31.0
+lxml>=5.0.0
+
+# Async support
+aiohttp>=3.9.0
+
+# Data validation / config
+pydantic>=2.7.0
+python-dotenv>=1.0.0
+
+# Retry + robustness
+tenacity>=8.2.0
+
+# Logging / CLI debugging
+rich>=13.7.0
+
+# Fast JSON parsing
+orjson>=3.10.0
+
+# Optional (memory / vector store)
+faiss-cpu>=1.8.0
