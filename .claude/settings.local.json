@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m py_compile tools.py agents.py app.py pipeline.py)",
+      "Bash(cd /d D:/Multi-Agent-System)",
+      "Bash(python -c \"import app; import agents; import tools; print\\('All modules import successfully'\\)\")"
+    ]
+  }
+}

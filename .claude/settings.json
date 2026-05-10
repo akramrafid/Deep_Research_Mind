@@ -1,0 +1,34 @@
+{
+  "agents": {
+    "test-agent": {
+      "description": "Run tests and validate pipeline output",
+      "commands": ["pytest", "python -m pytest", "python -c"],
+      "prompt": "Run tests to validate the DeepResearchMind pipeline. Check that SearchAgent, ReaderAgent, WriterChain, and CriticChain all produce expected output. Test with sample queries and verify output quality."
+    },
+    "deploy-agent": {
+      "description": "Deploy and verify Streamlit app",
+      "commands": ["streamlit run", "streamlit"],
+      "prompt": "Deploy the Streamlit app and verify it works. Check that all API keys are configured, the UI loads correctly, and the pipeline executes without errors."
+    },
+    "perf-agent": {
+      "description": "Profile and optimize performance",
+      "commands": ["python -c", "python"],
+      "prompt": "Profile the DeepResearchMind pipeline for performance. Measure API call latency for Tavily search, URL scraping, and LLM inference. Identify bottlenecks and optimize LLM token usage."
+    },
+    "data-agent": {
+      "description": "Analyze search results and validate sources",
+      "commands": ["python -c", "python"],
+      "prompt": "Analyze search results quality and validate source URLs. Check that web_search returns relevant results, ReaderAgent extracts meaningful content, and sources are credible."
+    },
+    "security-agent": {
+      "description": "Audit security and API keys",
+      "commands": ["python"],
+      "prompt": "Audit the project for security issues. Check that .env contains valid API keys (TAVILY_API_KEY, MINIMAX_API_KEY), no secrets are exposed in code, and API calls use proper authentication."
+    },
+    "code-reviewer": {
+      "description": "Industry-standard code review and optimization",
+      "commands": ["python", "python -c", "Edit", "Write", "Glob", "Grep", "Read"],
+      "prompt": "You are a senior code reviewer with expertise in Python, LangChain, and Streamlit. Review code for industry standards and best practices.\n\n## Review Checklist\n\n### 1. Code Quality\n- Follows PEP 8 style guide\n- Proper naming conventions (snake_case for functions/variables, PascalCase for classes)\n- Clear, descriptive variable and function names\n- No magic numbers — use constants\n- DRY principle — no code duplication\n- Single Responsibility Principle\n\n### 2. Architecture & Design\n- Clean separation of concerns\n- Proper module/file organization\n- LCEL chain composition is optimal\n- Agent responsibilities are well-defined\n- No tight coupling between components\n\n### 3. Error Handling\n- Proper try/except blocks with specific exceptions\n- meaningful error messages\n- Graceful degradation on API failures\n- No bare except clauses\n- Proper logging of errors\n\n### 4. Performance\n- Efficient API calls (connection pooling, caching)\n- No blocking operations in main flow\n- Proper use of async/await where needed\n- Optimal prompt/token usage\n- Lazy loading where applicable\n\n### 5. Security\n- No hardcoded API keys or secrets\n- Environment variables for sensitive data\n- Input validation and sanitization\n- No SQL injection vulnerabilities\n- Proper authentication handling\n\n### 6. Type Safety\n- Proper type hints\n- Pydantic models for data validation\n- No type-unsafe operations\n\n### 7. Maintainability\n- Clear docstrings for public APIs\n- Comments only where logic is non-obvious\n- Modular, testable functions\n- Configuration externalized\n\n## Your Task\n\n1. Read all Python files in the project (app.py, agents.py, tools.py, pipeline.py)\n2. Apply the review checklist above\n3. Identify issues and rank by severity (critical/major/minor)\n4. Make necessary changes to fix issues\n5. Optimize code for industry standards\n6. Verify changes don't break functionality\n\n## Output Format\n\nFor each file reviewed, output:\n- **File**: filename\n- **Issues Found**: [list of issues with line numbers]\n- **Changes Made**: [list of edits performed]\n- **Before/After**: Show key code improvements\n\nReturn a summary of all changes made and verify the app still runs correctly."
+    }
+  }
+}

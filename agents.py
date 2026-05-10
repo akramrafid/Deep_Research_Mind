@@ -1,28 +1,82 @@
-from langchain_core.language_models.llms import LLM
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.callbacks.manager import CallbackManagerForLLMRun
-from langchain_core.messages import AIMessage
-from tools import web_search, scrape_url
-from dotenv import load_dotenv
+"""Agents module for DeepResearchMind - LLM wrapper, agents, and chains."""
+
+import logging
+import re
+from typing import Any, Dict, List, Optional, Union
+
 import httpx
 import os
-import re
-from typing import Optional, List, Any
+from dotenv import load_dotenv
+
+from langchain_core.callbacks.manager import CallbackManagerForLLMRun
+from langchain_core.language_models.llms import LLM
+from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+
+from tools import web_search, scrape_url
 
 load_dotenv()
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Constants - avoid magic numbers
+DEFAULT_MAX_TOKENS: int = 2048
+DEFAULT_TEMPERATURE: float = 0.0
+DEFAULT_TIMEOUT: float = 60.0
+SEARCH_RESULTS_TRUNCATION: int = 800
+
+# OpenRouter API endpoint
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+# URL extraction pattern
+URL_PATTERN = re.compile(r"https?://[^\s<>\"')\]]+")
+
+# HTTP client singleton for connection pooling
+_http_client: Optional[httpx.Client] = None
+
+
+def _get_http_client() -> httpx.Client:
+    """Get or create HTTP client with connection pooling."""
+    global _http_client
+    if _http_client is None:
+        _http_client = httpx.Client(
+            timeout=DEFAULT_TIMEOUT,
+            limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
+        )
+    return _http_client
+
+
+def _validate_api_key() -> str:
+    """Validate that API key is present."""
+    api_key = os.getenv("MINIMAX_API_KEY")
+    if not api_key:
+        raise ValueError("MINIMAX_API_KEY environment variable is not set")
+    return api_key
+
+
 # ── LLM Wrapper (OpenRouter-compatible) ──
 class MiniMaxLLM(LLM):
-    """Custom LLM wrapper for OpenRouter API"""
+    """Custom LLM wrapper for OpenRouter API supporting MiniMax and other models."""
 
-    api_key: str = os.getenv("MINIMAX_API_KEY", "")
     model_name: str = "minimax-m2.5"
-    temperature: float = 0
+    temperature: float = DEFAULT_TEMPERATURE
+    max_tokens: int = DEFAULT_MAX_TOKENS
 
     @property
     def _llm_type(self) -> str:
         return "minimax"
+
+    @property
+    def _identifying_params(self) -> Dict[str, Any]:
+        """Return identifying parameters."""
+        return {
+            "model_name": self.model_name,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+        }
 
     def _call(
         self,
@@ -31,57 +85,97 @@ class MiniMaxLLM(LLM):
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> str:
-        """Call OpenRouter API"""
+        """Call OpenRouter API with proper error handling.
+
+        Args:
+            prompt: The prompt to send to the LLM.
+            stop: Optional stop sequences.
+            run_manager: Optional callback manager.
+            **kwargs: Additional kwargs.
+
+        Returns:
+            The LLM response text.
+
+        Raises:
+            RuntimeError: If the API call fails.
+        """
+        api_key = _validate_api_key()
+
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}"
+            "Authorization": f"Bearer {api_key}",
         }
 
-        payload = {
+        payload: Dict[str, Any] = {
             "model": self.model_name,
-            "messages": [
-                {"role": "user", "content": prompt}
-            ],
+            "messages": [{"role": "user", "content": prompt}],
             "temperature": self.temperature,
-            "max_tokens": 2048
+            "max_tokens": self.max_tokens,
         }
+
+        if stop:
+            payload["stop"] = stop
 
         try:
-            with httpx.Client() as client:
-                response = client.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    json=payload,
-                    headers=headers,
-                    timeout=60.0
-                )
-                response.raise_for_status()
-                result = response.json()
+            client = _get_http_client()
+            response = client.post(OPENROUTER_API_URL, json=payload, headers=headers)
+            response.raise_for_status()
+            result = response.json()
 
-                if "choices" in result and len(result["choices"]) > 0:
-                    return result["choices"][0].get("message", {}).get("content", "")
-                elif "reply" in result:
-                    return result["reply"]
-                else:
-                    return str(result)
+            if "choices" in result and len(result["choices"]) > 0:
+                content = result["choices"][0].get("message", {}).get("content", "")
+                if content:
+                    return content
+            if "reply" in result:
+                return result["reply"]
+
+            logger.warning(f"Unexpected API response format: {result}")
+            return str(result)
+        except httpx.HTTPStatusError as e:
+            error_msg = f"HTTP error {e.response.status_code}: {e.response.text}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg) from e
+        except httpx.RequestError as e:
+            error_msg = f"Request error: {str(e)}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg) from e
         except Exception as e:
-            return f"Error calling API: {str(e)}"
+            error_msg = f"Unexpected error calling API: {str(e)}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg) from e
 
 
 # ── Model setup ──
-llm = MiniMaxLLM(temperature=0)
+llm = MiniMaxLLM(temperature=DEFAULT_TEMPERATURE)
 
 
 # ── Search Agent ──
 class SearchAgent:
     """Agent that searches the web using the Tavily tool directly."""
 
-    def __init__(self, llm):
+    def __init__(self, llm: LLM) -> None:
+        """Initialize the search agent.
+
+        Args:
+            llm: The language model to use.
+        """
         self.llm = llm
 
-    def invoke(self, inputs):
+    def invoke(self, inputs: Dict[str, List[Union[tuple, BaseMessage]]]) -> Dict[str, List[AIMessage]]:
+        """Invoke the search agent to perform web search.
+
+        Args:
+            inputs: Dictionary with 'messages' key containing user messages.
+
+        Returns:
+            Dictionary with search results in 'messages' key.
+        """
+        # Extract user message from inputs
         user_msg = inputs["messages"][-1][1]
-        # Extract a concise search query from the user message
+
+        # Perform search using the web_search tool
         search_results = web_search.invoke({"query": user_msg})
+
         return {"messages": [AIMessage(content=search_results)]}
 
 
@@ -89,10 +183,23 @@ class SearchAgent:
 class ReaderAgent:
     """Agent that picks the best URL from search results and scrapes it."""
 
-    def __init__(self, llm):
+    def __init__(self, llm: LLM) -> None:
+        """Initialize the reader agent.
+
+        Args:
+            llm: The language model to use.
+        """
         self.llm = llm
 
-    def invoke(self, inputs):
+    def invoke(self, inputs: Dict[str, List[Union[tuple, BaseMessage]]]) -> Dict[str, List[AIMessage]]:
+        """Invoke the reader agent to extract and scrape relevant URL.
+
+        Args:
+            inputs: Dictionary with 'messages' key containing search results.
+
+        Returns:
+            Dictionary with scraped content in 'messages' key.
+        """
         user_msg = inputs["messages"][-1][1]
 
         # Ask LLM to pick the best URL
@@ -101,16 +208,21 @@ class ReaderAgent:
             "for detailed information. Return ONLY the raw URL, nothing else.\n\n"
             f"{user_msg}"
         )
-        llm_response = self.llm.invoke(url_prompt).strip()
+
+        try:
+            llm_response = self.llm.invoke(url_prompt).strip()
+        except RuntimeError as e:
+            logger.error(f"LLM failed to extract URL: {e}")
+            return {"messages": [AIMessage(content=f"Error extracting URL: {str(e)}")]}
 
         # Extract URL from LLM response
-        urls = re.findall(r'https?://[^\s<>"\')\]]+', llm_response)
+        urls = URL_PATTERN.findall(llm_response)
 
         if urls:
             scraped = scrape_url.invoke({"url": urls[0]})
         else:
             # Fallback: try to find URLs in the original message
-            fallback_urls = re.findall(r'https?://[^\s<>"\')\]]+', user_msg)
+            fallback_urls = URL_PATTERN.findall(user_msg)
             if fallback_urls:
                 scraped = scrape_url.invoke({"url": fallback_urls[0]})
             else:
@@ -119,10 +231,21 @@ class ReaderAgent:
         return {"messages": [AIMessage(content=scraped)]}
 
 
-def build_search_agent():
+def build_search_agent() -> SearchAgent:
+    """Build and return a SearchAgent instance.
+
+    Returns:
+        A configured SearchAgent.
+    """
     return SearchAgent(llm)
 
-def build_reader_agent():
+
+def build_reader_agent() -> ReaderAgent:
+    """Build and return a ReaderAgent instance.
+
+    Returns:
+        A configured ReaderAgent.
+    """
     return ReaderAgent(llm)
 
 
